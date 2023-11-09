@@ -16,6 +16,43 @@ from email.mime.multipart import MIMEMultipart
 app = Flask(__name__)
 
 
+def load_model():
+    class_names = [
+        "african-wildcat",
+        "blackfoot-cat",
+        "chinese-mountain-cat",
+        "domestic-cat",
+        "european-wildcat",
+        "jungle-cat",
+        "sand-cat",
+    ]
+
+    global model
+    model = Sequential()
+
+    vgg = VGG16(include_top=False, weights="imagenet", input_shape=(227, 227, 3))
+
+    vgg.trainable = True
+    for layer in vgg.layers[:15]:
+        layer.trainable = False
+
+    model.add(vgg)
+    model.add(GlobalAveragePooling2D())
+    model.add(Dense(units=512, activation="relu"))
+    model.add(Dropout(0.5))
+    model.add(Dense(units=len(class_names), activation="softmax"))
+
+    opt = Adam(learning_rate=0.0001)
+    model.compile(
+        optimizer=opt, loss=keras.losses.categorical_crossentropy, metrics=["accuracy"]
+    )
+
+    model.load_weights("./weights.h5")
+
+
+load_model()
+
+
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -93,25 +130,6 @@ def process_image(file_path):
         "sand-cat",
     ]
 
-    model = Sequential()
-    vgg = VGG16(include_top=False, weights="imagenet", input_shape=(227, 227, 3))
-
-    vgg.trainable = True
-    for layer in vgg.layers[:15]:
-        layer.trainable = False
-
-    model.add(vgg)
-    model.add(GlobalAveragePooling2D())
-    model.add(Dense(units=512, activation="relu"))
-    model.add(Dropout(0.5))
-    model.add(Dense(units=len(class_names), activation="softmax"))
-
-    opt = Adam(learning_rate=0.0001)
-    model.compile(
-        optimizer=opt, loss=keras.losses.categorical_crossentropy, metrics=["accuracy"]
-    )
-
-    model.load_weights("./weights.h5")
     img = load_img(file_path)
     img = img.resize((227, 227))
     x = img_to_array(img)
@@ -124,5 +142,5 @@ def process_image(file_path):
     return result
 
 
-# if __name__ == "__main__":
-#     app.run(debug=True)
+if __name__ == "__main__":
+    app.run(debug=True)
